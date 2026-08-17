@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="../BEACON.png" alt="Beacon Innovation Hub" width="650">
-</p>
 
 <div align="center">
 
@@ -141,3 +138,7 @@ Learn → Practice → Build → Review → Improve → Deliver
 *A Beacon for Innovators Building for the Future.*
 
 </div>
+
+<p align="center">
+  <img src="../BEACON.png" alt="Beacon Innovation Hub" width="650">
+</p>
