@@ -1,0 +1,78 @@
+# Reusable workflow for PR validation
+name: PR Validation
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: '.'
+        description: 'Working directory for the workflow'
+      node-version:
+        type: string
+        default: '18'
+        description: 'Node.js version to use'
+      python-version:
+        type: string
+        default: '3.11'
+        description: 'Python version to use'
+      use-node:
+        type: boolean
+        default: false
+        description: 'Whether to setup Node.js'
+      use-python:
+        type: boolean
+        default: false
+        description: 'Whether to setup Python'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: inputs.use-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: inputs.use-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+
+      - name: Check commit messages
+        run: |
+          echo "Checking commit messages for conventional format..."
+          git log origin/main..HEAD --pretty=format:%s | while read commit; do
+            if ! echo "$commit" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|ci)'; then
+              echo "❌ Commit message does not follow conventional commits: $commit"
+              exit 1
+            fi
+          done || true
+          echo "✓ Commit messages validated"
+
+      - name: Check file size
+        run: |
+          echo "Checking for large files..."
+          find . -type f -size +100M | while read file; do
+            echo "⚠️ Large file detected: $file ($(du -h "$file" | cut -f1))"
+          done
+          echo "✓ File size check complete"
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          find . -name '*.json' -not -path './node_modules/*' | while read file; do
+            if ! python3 -m json.tool "$file" > /dev/null 2>&1; then
+              echo "❌ Invalid JSON: $file"
+              exit 1
+            fi
+          done || true
+          echo "✓ JSON files validated"

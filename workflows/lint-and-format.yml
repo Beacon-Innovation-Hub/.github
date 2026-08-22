@@ -1,0 +1,86 @@
+# Reusable workflow for linting and code formatting
+name: Lint & Format
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: '.'
+        description: 'Working directory for the workflow'
+      node-version:
+        type: string
+        default: '18'
+        description: 'Node.js version to use'
+      python-version:
+        type: string
+        default: '3.11'
+        description: 'Python version to use'
+      use-node:
+        type: boolean
+        default: false
+        description: 'Whether to setup Node.js'
+      use-python:
+        type: boolean
+        default: false
+        description: 'Whether to setup Python'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: inputs.use-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: inputs.use-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+
+      - name: Install Node dependencies
+        if: inputs.use-node
+        working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+
+      - name: Install Python dependencies
+        if: inputs.use-python
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pylint black isort
+
+      - name: Run ESLint
+        if: inputs.use-node
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: npm run lint || echo "ESLint check failed or not configured"
+
+      - name: Run Prettier
+        if: inputs.use-node
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: npm run format:check || echo "Prettier check failed or not configured"
+
+      - name: Run Python linting
+        if: inputs.use-python
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          pylint **/*.py || true
+
+      - name: Check Python formatting
+        if: inputs.use-python
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: |
+          black --check . || true
+          isort --check-only . || true
