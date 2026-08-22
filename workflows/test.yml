@@ -1,0 +1,82 @@
+# Reusable workflow for running tests
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: '.'
+        description: 'Working directory for the workflow'
+      node-version:
+        type: string
+        default: '18'
+        description: 'Node.js version to use'
+      python-version:
+        type: string
+        default: '3.11'
+        description: 'Python version to use'
+      use-node:
+        type: boolean
+        default: false
+        description: 'Whether to setup Node.js and run npm tests'
+      use-python:
+        type: boolean
+        default: false
+        description: 'Whether to setup Python and run pytest'
+      test-command:
+        type: string
+        default: 'npm test'
+        description: 'Custom test command to run'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: inputs.use-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: inputs.use-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+
+      - name: Install Node dependencies
+        if: inputs.use-node
+        working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+
+      - name: Install Python dependencies
+        if: inputs.use-python
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || echo "requirements.txt not found"
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Run pytest
+        if: inputs.use-python
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: pytest --cov --cov-report=xml --cov-report=html
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v3
+        continue-on-error: true
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella

@@ -1,0 +1,54 @@
+# Reusable workflow for building projects
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        type: string
+        default: '.'
+        description: 'Working directory for the workflow'
+      node-version:
+        type: string
+        default: '18'
+        description: 'Node.js version to use'
+      build-command:
+        type: string
+        default: 'npm run build'
+        description: 'Build command to run'
+      use-node:
+        type: boolean
+        default: false
+        description: 'Whether to setup Node.js'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: inputs.use-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: inputs.use-node
+        working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+
+      - name: Build project
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.build-command }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: |
+            ${{ inputs.working-directory }}/dist/
+            ${{ inputs.working-directory }}/build/
+            ${{ inputs.working-directory }}/out/
+          retention-days: 7
